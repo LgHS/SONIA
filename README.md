@@ -9,7 +9,7 @@
 
 **S**onnette **O**pérationnelle, **N**on **I**nfinie, **A**méliorée.
 
-Une sonnette à base d'ESP8266 et de DFPlayer Mini. Un appui sur le bouton joue un MP3 depuis une carte SD. Si la personne insiste, un autre son est joué. Très rarement, la première sonnerie est remplacée par une blague. Le firmware se met à jour par Wi-Fi (OTA) et propose une petite page web pour lancer les sons à la main.
+Une sonnette à base d'ESP8266 et de DFPlayer Mini. Un appui sur le bouton joue un MP3 depuis une carte SD. Si la personne insiste, un autre son est joué. Très rarement, la première sonnerie est remplacée par une blague. Le firmware se met à jour par Wi-Fi (OTA), propose une page web pour lancer les sons à la main et une page d'administration protégée par mot de passe pour régler le Wi-Fi et le MQTT.
 
 ## Fonctionnement
 
@@ -84,7 +84,7 @@ Les broches D3, D4 et D8 sont évitées parce qu'elles gênent le démarrage de 
 
 Le projet utilise [PlatformIO](https://platformio.org/).
 
-1. **Secrets du firmware :** copiez `include/secrets.example.h` en `include/secrets.h` et remplissez le Wi-Fi et le mot de passe OTA.
+1. **Secrets du firmware :** copiez `include/secrets.example.h` en `include/secrets.h` et remplissez le Wi-Fi par défaut, le mot de passe OTA et le mot de passe de la page d'administration (8 caractères minimum).
 2. **Secrets de PlatformIO (pour l'OTA) :** copiez `secrets.example.ini` en `secrets.ini` et mettez le même mot de passe OTA.
 3. **Premier flash, en USB :**
    ```
@@ -110,6 +110,35 @@ Ouvrez `http://sonia.local` depuis le même réseau. Trois boutons lancent les t
 
 La page n'a pas de mot de passe : toute personne sur le réseau peut faire sonner.
 
+## Administration
+
+`http://sonia.local/admin`, utilisateur `admin`, mot de passe `ADMIN_PASSWORD` de `include/secrets.h`. L'authentification HTTP Digest évite d'envoyer le mot de passe en clair, et les formulaires envoyés depuis un autre site sont refusés.
+
+La page affiche l'état de SONIA (Wi-Fi, signal, MQTT, DFPlayer, durée depuis le démarrage) et permet de régler :
+
+- **le Wi-Fi :** nom du réseau et mot de passe ;
+- **le MQTT :** activé ou non, serveur, port, utilisateur, mot de passe et topic de base.
+
+Un mot de passe laissé vide garde sa valeur actuelle. « Enregistrer et redémarrer » sauvegarde les réglages dans la flash de l'ESP, où ils survivent aux redémarrages et aux mises à jour OTA. Les valeurs de `secrets.h` ne servent qu'au tout premier démarrage.
+
+### Point d'accès de secours
+
+Si SONIA ne trouve pas le Wi-Fi pendant 60 s (mauvais mot de passe, réseau changé…), elle ouvre le point d'accès **`SONIA-config`**, protégé par le mot de passe d'administration. Connectez-vous-y et corrigez les réglages sur `http://192.168.4.1/admin`. Le point d'accès se ferme dès que le Wi-Fi revient. La sonnette continue de fonctionner pendant ce temps.
+
+## MQTT
+
+Une fois activé dans l'administration, avec `sonia` comme topic de base :
+
+| Topic | Sens | Contenu |
+|---|---|---|
+| `sonia/status` | publié, conservé | `online`, ou `offline` publié par le serveur si SONIA disparaît |
+| `sonia/ring` | publié | `{"track":1,"name":"first","source":"button"}` à chaque son |
+| `sonia/play` | écouté | `1`, `2` ou `3` pour lancer un son, avec les mêmes garde-fous que le bouton |
+
+`name` vaut `first`, `insist` ou `joke`, et `source` vaut `button`, `web` ou `mqtt`.
+
+Indiquez le serveur par son adresse IP de préférence. Si le serveur est injoignable, chaque tentative de connexion (toutes les 15 s) bloque SONIA jusqu'à 1,5 s, et une résolution DNS ajouterait encore du temps. Un appui très bref sur le bouton à ce moment-là pourrait être manqué.
+
 ## Diagnostic du DFPlayer
 
 Si le DFPlayer ne répond pas, un firmware de diagnostic envoie des commandes brutes et affiche les réponses sur le port série. Il teste aussi le câblage avec TX et RX inversés, côté logiciel :
@@ -123,5 +152,4 @@ Pour revenir au firmware normal : `pio run -t upload`.
 
 ## Pistes pour la suite
 
-- MQTT, pour signaler les sonneries à d'autres systèmes
 - Couper l'ampli entre deux sonneries (MOSFET ou broche MUTE), pour supprimer le bourdonnement au repos

@@ -5,3 +5,5 @@
 #define WIFI_SSID     "ton_ssid"
 #define WIFI_PASSWORD "ton_mot_de_passe"
 #define OTA_PASSWORD  "mot_de_passe_ota"
+// Page /admin (utilisateur "admin") et point d'accès de secours : 8 caractères minimum.
+#define ADMIN_PASSWORD "mot_de_passe_admin"

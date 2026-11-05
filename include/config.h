@@ -1,8 +1,21 @@
 #pragma once
 #include <Arduino.h>
 
-// Nom réseau (Wi-Fi, mDNS sonia.local, OTA).
+// --- Réseau ---
+// Nom réseau (Wi-Fi, mDNS sonia.local, OTA, identifiant MQTT).
 constexpr const char* DEVICE_NAME = "sonia";
+// Utilisateur de la page /admin (mot de passe : ADMIN_PASSWORD dans secrets.h).
+constexpr const char* ADMIN_USER = "admin";
+// Sans Wi-Fi pendant SETUP_AP_DELAY_MS, l'ESP ouvre ce point d'accès de secours
+// (mot de passe : ADMIN_PASSWORD) pour corriger les réglages sur http://192.168.4.1/admin.
+constexpr const char* SETUP_AP_SSID = "SONIA-config";
+constexpr uint32_t SETUP_AP_DELAY_MS = 60000;
+
+// --- MQTT (valeurs par défaut, modifiables dans /admin) ---
+constexpr uint16_t MQTT_DEFAULT_PORT = 1883;
+constexpr const char* MQTT_DEFAULT_TOPIC = "sonia";
+constexpr uint32_t MQTT_RETRY_MS = 15000;           // délai entre deux tentatives de connexion
+constexpr uint32_t MQTT_CONNECT_TIMEOUT_MS = 1500;  // une tentative bloque la boucle au plus ce temps
 
 // --- Brochage (Wemos D1 mini Pro) ---
 // Bouton : une patte sur PIN_BUTTON, l'autre sur GND (pull-up interne activé).
