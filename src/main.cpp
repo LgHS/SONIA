@@ -79,6 +79,10 @@ uint32_t lastPlaybackEndAt = 0;  // fin de la dernière sonnerie
 bool jokePlayed = false;
 uint32_t lastJokeAt = 0;
 
+uint16_t lastPlayTrack = 0;  // 0 : aucun son depuis le démarrage (affiché sur la page d'état)
+Source lastPlaySource = Source::Button;
+uint32_t lastPlayAt = 0;
+
 void enter(State next, uint32_t now) {
   if (state == State::Playing && next != State::Playing && playingRing) {
     hasPlayed = true;
@@ -123,6 +127,9 @@ void play(uint16_t track, Source source, uint32_t now) {
   // Commande « lire /mp3/000N.mp3 » : une seule lecture, pas de répétition.
   player.playMp3Folder(track);
   playingRing = source == Source::Button;
+  lastPlayTrack = track;
+  lastPlaySource = source;
+  lastPlayAt = now;
   enter(State::Playing, now);
   publishPlay(track, source);
 }
@@ -216,8 +223,8 @@ String htmlEscape(const char* text) {
   return out;
 }
 
-String uptimeText() {
-  const uint32_t s = millis() / 1000;
+String durationText(uint32_t ms) {
+  const uint32_t s = ms / 1000;
   char buf[24];
   snprintf(buf, sizeof(buf), "%uj %02uh %02umin", unsigned(s / 86400), unsigned(s / 3600 % 24), unsigned(s / 60 % 60));
   return buf;
@@ -240,11 +247,48 @@ bool requireAdmin() {
   return false;
 }
 
+// Déclenchement manuel depuis l'administration.
 void handlePlayRequest() {
-  if (!sameOrigin()) return;
+  if (!sameOrigin() || !requireAdmin()) return;
   const PlayResult result = requestPlay(server.arg("track").toInt(), Source::Web);
   static const int codes[] = {200, 400, 503, 409};
   sendText(codes[int(result)], describe(result));
+}
+
+const char* stateText() {
+  switch (state) {
+    case State::Idle: return "prête";
+    case State::Playing: return "lecture en cours";
+    default: return "pause après lecture";
+  }
+}
+
+const char* sourceLabel(Source source) {
+  switch (source) {
+    case Source::Button: return "bouton";
+    case Source::Web: return "admin";
+    default: return "MQTT";
+  }
+}
+
+// Page publique : informations de debug en lecture seule, sans secret ni action.
+void handleStatusPage() {
+  String page = FPSTR(STATUS_PAGE);
+  const bool connected = WiFi.status() == WL_CONNECTED;
+  page.replace("{{state}}", stateText());
+  page.replace("{{player}}", playerReady ? "prêt" : "absent");
+  page.replace("{{last}}", lastPlayTrack ? "piste " + String(lastPlayTrack) + " · " + sourceLabel(lastPlaySource) +
+                                               " · il y a " + durationText(millis() - lastPlayAt)
+                                         : String("aucun depuis le démarrage"));
+  String wifi = connected ? String(WiFi.RSSI()) + " dBm" : String("non connecté");
+  if (setupApActive) wifi += " · accès de secours actif";
+  page.replace("{{wifi}}", wifi);
+  page.replace("{{mqtt}}", !settings.mqttEnabled ? "désactivé" : mqtt.connected() ? "connecté" : "déconnecté");
+  page.replace("{{uptime}}", durationText(millis()));
+  page.replace("{{reset}}", htmlEscape(ESP.getResetReason().c_str()));
+  page.replace("{{heap}}", String(ESP.getFreeHeap()) + " octets");
+  page.replace("{{build}}", __DATE__ " " __TIME__);
+  server.send(200, "text/html; charset=utf-8", page);
 }
 
 void handleAdminPage() {
@@ -257,7 +301,7 @@ void handleAdminPage() {
   page.replace("{{setup_ap}}", setupApActive ? "actif : " + htmlEscape(SETUP_AP_SSID) : String("inactif"));
   page.replace("{{mqtt_status}}", htmlEscape(mqttStatusText().c_str()));
   page.replace("{{player_status}}", playerReady ? "prêt" : "absent");
-  page.replace("{{uptime}}", uptimeText());
+  page.replace("{{uptime}}", durationText(millis()));
   page.replace("{{wifi_ssid}}", htmlEscape(settings.wifiSsid));
   page.replace("{{mqtt_checked}}", settings.mqttEnabled ? "checked" : "");
   page.replace("{{mqtt_host}}", htmlEscape(settings.mqttHost));
@@ -310,10 +354,10 @@ void handleAdminSave() {
 
 void setupWebServer() {
   server.collectHeaders("Origin");  // nécessaire à sameOrigin()
-  server.on("/", HTTP_GET, []() { server.send_P(200, "text/html; charset=utf-8", PAGE); });
-  server.on("/play", HTTP_POST, handlePlayRequest);
+  server.on("/", HTTP_GET, handleStatusPage);
   server.on("/admin", HTTP_GET, handleAdminPage);
   server.on("/admin", HTTP_POST, handleAdminSave);
+  server.on("/admin/play", HTTP_POST, handlePlayRequest);
   server.onNotFound([]() { sendText(404, "Introuvable"); });
   server.begin();
 }

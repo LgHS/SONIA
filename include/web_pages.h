@@ -1,4 +1,4 @@
-// Pages HTML servies par l'ESP. Les {{marqueurs}} de ADMIN_PAGE sont remplacés à l'envoi.
+// Pages HTML servies par l'ESP. Les {{marqueurs}} sont remplacés à l'envoi.
 #pragma once
 #include <Arduino.h>
 
@@ -15,37 +15,33 @@
   "p{margin:4px 0 24px;color:var(--mut);font-size:14px}"                                               \
   "a{color:var(--acc)}"                                                                                \
   ".card{background:var(--card);border-radius:12px;padding:16px;margin:0 0 16px;"                     \
-  "box-shadow:0 1px 3px rgba(0,0,0,.12)}"
+  "box-shadow:0 1px 3px rgba(0,0,0,.12)}"                                                              \
+  "dl{display:grid;grid-template-columns:auto 1fr;gap:6px 16px;margin:0;font-size:14px}"              \
+  "dt{color:var(--mut)}dd{margin:0;overflow-wrap:anywhere}"
 
-static const char PAGE[] PROGMEM = R"html(<!doctype html>
+// Page publique : état en lecture seule, aucune action possible.
+static const char STATUS_PAGE[] PROGMEM = R"html(<!doctype html>
 <html lang="fr"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
+<meta http-equiv="refresh" content="10">
 <title>SONIA</title>
 <style>)html" SONIA_CSS R"html(
-button{display:block;width:100%;margin:0 0 12px;padding:18px 20px;border:0;border-left:4px solid var(--acc);
-border-radius:12px;background:var(--card);color:var(--fg);font:inherit;text-align:left;cursor:pointer;
-box-shadow:0 1px 3px rgba(0,0,0,.12)}
-button b{display:block;font-size:18px}
-button span{font-size:13px;color:var(--mut)}
-button:active{transform:scale(.99)}
-#s{min-height:1.5em;margin-top:8px;font-size:15px;color:var(--mut)}
-.foot{margin-top:32px;font-size:13px}
+.foot{margin-top:24px;font-size:13px}
 </style></head><body><main>
 <h1>SONIA</h1>
 <p>Sonnette Opérationnelle, Non Infinie, Améliorée</p>
-<button data-t="1"><b>1re sonnerie</b><span>0001.mp3</span></button>
-<button data-t="2"><b>Insistance</b><span>0002.mp3</span></button>
-<button data-t="3"><b>Blague</b><span>0003.mp3</span></button>
-<div id="s" role="status"></div>
-<p class="foot"><a href="/admin">Administration</a></p>
-<script>
-const s=document.getElementById('s');
-document.querySelectorAll('button').forEach(b=>b.onclick=async()=>{
-  s.textContent='…';
-  try{const r=await fetch('/play?track='+b.dataset.t,{method:'POST'});s.textContent=await r.text();}
-  catch(e){s.textContent='SONIA ne répond pas';}
-});
-</script>
+<section class="card"><h2>État</h2><dl>
+<dt>Sonnette</dt><dd>{{state}}</dd>
+<dt>DFPlayer</dt><dd>{{player}}</dd>
+<dt>Dernier son</dt><dd>{{last}}</dd>
+<dt>Wi-Fi</dt><dd>{{wifi}}</dd>
+<dt>MQTT</dt><dd>{{mqtt}}</dd>
+<dt>Allumé depuis</dt><dd>{{uptime}}</dd>
+<dt>Dernier redémarrage</dt><dd>{{reset}}</dd>
+<dt>Mémoire libre</dt><dd>{{heap}}</dd>
+<dt>Firmware</dt><dd>{{build}}</dd>
+</dl></section>
+<p class="foot">Actualisé toutes les 10 s · <a href="/admin">Administration</a></p>
 </main></body></html>)html";
 
 static const char ADMIN_PAGE[] PROGMEM = R"html(<!doctype html>
@@ -53,8 +49,6 @@ static const char ADMIN_PAGE[] PROGMEM = R"html(<!doctype html>
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>SONIA admin</title>
 <style>)html" SONIA_CSS R"html(
-dl{display:grid;grid-template-columns:auto 1fr;gap:6px 16px;margin:0;font-size:14px}
-dt{color:var(--mut)}dd{margin:0;overflow-wrap:anywhere}
 label{display:block;margin:12px 0 4px;font-size:14px;color:var(--mut)}
 label.row{display:flex;align-items:center;gap:8px;color:var(--fg);margin-top:4px}
 input[type=text],input[type=password],input[type=number]{width:100%;padding:10px 12px;border:1px solid var(--line);
@@ -62,11 +56,16 @@ border-radius:8px;background:var(--bg);color:var(--fg);font:inherit}
 input[type=checkbox]{width:18px;height:18px;accent-color:var(--acc)}
 .hint{margin:12px 0 0;font-size:13px}
 code{font-size:12px}
+.plays{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.plays button{padding:12px 6px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--fg);
+font:inherit;font-size:14px;cursor:pointer}
+.plays button:active{transform:scale(.98)}
+#s{min-height:1.4em;margin:8px 0 0;font-size:14px;color:var(--mut)}
 .save{width:100%;padding:14px;border:0;border-radius:12px;background:var(--acc);color:#fff;font:inherit;
 font-weight:600;cursor:pointer}
 </style></head><body><main>
 <h1>SONIA</h1>
-<p>Administration · <a href="/">retour à la sonnette</a></p>
+<p>Administration · <a href="/">page d'état</a></p>
 <section class="card"><h2>État</h2><dl>
 <dt>Wi-Fi</dt><dd>{{wifi_status}}</dd>
 <dt>Accès de secours</dt><dd>{{setup_ap}}</dd>
@@ -74,6 +73,14 @@ font-weight:600;cursor:pointer}
 <dt>DFPlayer</dt><dd>{{player_status}}</dd>
 <dt>Allumé depuis</dt><dd>{{uptime}}</dd>
 </dl></section>
+<section class="card"><h2>Déclenchement manuel</h2>
+<div class="plays">
+<button type="button" data-t="1">1re sonnerie</button>
+<button type="button" data-t="2">Insistance</button>
+<button type="button" data-t="3">Blague</button>
+</div>
+<div id="s" role="status"></div>
+</section>
 <form method="post" action="/admin">
 <section class="card"><h2>Wi-Fi</h2>
 <label for="ws">Nom du réseau (SSID)</label>
@@ -98,6 +105,14 @@ font-weight:600;cursor:pointer}
 </section>
 <button class="save" type="submit">Enregistrer et redémarrer</button>
 </form>
+<script>
+const s=document.getElementById('s');
+document.querySelectorAll('.plays button').forEach(b=>b.onclick=async()=>{
+  s.textContent='…';
+  try{const r=await fetch('/admin/play?track='+b.dataset.t,{method:'POST'});s.textContent=await r.text();}
+  catch(e){s.textContent='SONIA ne répond pas';}
+});
+</script>
 </main></body></html>)html";
 
 static const char SAVED_PAGE[] PROGMEM = R"html(<!doctype html>

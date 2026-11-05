@@ -9,7 +9,7 @@
 
 **S**onnette **O**pérationnelle, **N**on **I**nfinie, **A**méliorée.
 
-Une sonnette à base d'ESP8266 et de DFPlayer Mini. Un appui sur le bouton joue un MP3 depuis une carte SD. Si la personne insiste, un autre son est joué. Très rarement, la première sonnerie est remplacée par une blague. Le firmware se met à jour par Wi-Fi (OTA), propose une page web pour lancer les sons à la main et une page d'administration protégée par mot de passe pour régler le Wi-Fi et le MQTT.
+Une sonnette à base d'ESP8266 et de DFPlayer Mini. Un appui sur le bouton joue un MP3 depuis une carte SD. Si la personne insiste, un autre son est joué. Très rarement, la première sonnerie est remplacée par une blague. Le firmware se met à jour par Wi-Fi (OTA), affiche une page d'état publique en lecture seule, et propose une page d'administration protégée par mot de passe pour déclencher les sons à la main et régler le Wi-Fi et le MQTT.
 
 ## Fonctionnement
 
@@ -104,17 +104,17 @@ pio run -e ota -t upload
 
 L'OTA est protégé par le mot de passe défini dans les secrets. Si `sonia.local` ne répond pas, passez l'adresse IP : `pio run -e ota -t upload --upload-port <IP>`.
 
-## Page web
+## Page d'état
 
-Ouvrez `http://sonia.local` depuis le même réseau. Trois boutons lancent les trois sons. La page applique les mêmes garde-fous que le bouton : elle répond « Occupé » si un son est en cours. Les sons lancés depuis la page ne comptent pas pour la détection d'insistance.
-
-La page n'a pas de mot de passe : toute personne sur le réseau peut faire sonner.
+`http://sonia.local`, depuis le même réseau, affiche des informations de debug en lecture seule, actualisées toutes les 10 s : état de la sonnette et du DFPlayer, dernier son joué, signal Wi-Fi, état du MQTT, durée depuis le démarrage, cause du dernier redémarrage, mémoire libre et date de compilation du firmware. Elle ne permet aucune action et n'affiche aucun secret.
 
 ## Administration
 
 `http://sonia.local/admin`, utilisateur `admin`, mot de passe `ADMIN_PASSWORD` de `include/secrets.h`. L'authentification HTTP Digest évite d'envoyer le mot de passe en clair, et les formulaires envoyés depuis un autre site sont refusés.
 
-La page affiche l'état de SONIA (Wi-Fi, signal, MQTT, DFPlayer, durée depuis le démarrage) et permet de régler :
+Trois boutons de **déclenchement manuel** y lancent les trois sons, avec les mêmes garde-fous que le bouton : SONIA répond « Occupé » si un son est en cours. Ces sons ne comptent pas pour la détection d'insistance.
+
+La page affiche aussi l'état de SONIA (Wi-Fi, signal, MQTT, DFPlayer, durée depuis le démarrage) et permet de régler :
 
 - **le Wi-Fi :** nom du réseau et mot de passe ;
 - **le MQTT :** activé ou non, serveur, port, utilisateur, mot de passe et topic de base.
