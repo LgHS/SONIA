@@ -36,7 +36,10 @@ Tous les réglages (volume, délais, probabilité de la blague, broches) sont da
 - Un bouton poussoir
 - Une résistance de 1 kΩ
 - Un condensateur électrolytique de 100 à 470 µF (10 V minimum)
-- Un haut-parleur de 4 à 8 Ω, et éventuellement un ampli
+- Un ampli PAM8610 (2 × 10 W en 12 V, par exemple le module DollaTek)
+- Deux haut-parleurs de 4 à 8 Ω
+- Une alimentation 12 V d'au moins 1,5 A
+- Un convertisseur abaisseur (step-down) 12 V → 5 V à sortie fixe, 1 A minimum (3 A recommandés)
 
 ## Câblage
 
@@ -55,12 +58,48 @@ Le condensateur se place entre VCC et GND, au plus près du DFPlayer, avec la ba
 
 Une patte sur **D5** (GPIO14), l'autre sur **G**. Le pull-up interne est activé, donc pas besoin de résistance.
 
-### Son
+### Alimentation
 
-Deux possibilités :
+L'alimentation 12 V alimente directement l'ampli, et le convertisseur abaisseur fournit le 5 V de l'ESP et du DFPlayer :
 
-- **Sans ampli :** le haut-parleur (3 W maximum) se branche sur **SPK_1** et **SPK_2** du DFPlayer. Ne reliez pas SPK_2 à la masse.
-- **Avec un ampli :** l'entrée de l'ampli se branche sur **DAC_L** (et/ou **DAC_R**) et sur un **GND** du DFPlayer. La masse de l'alimentation de l'ampli doit être reliée à celle de l'ESP. Avec un ampli à sorties pontées (PAM8403, PAM8406…), ne reliez jamais une sortie « − » à la masse.
+| Alimentation | Va vers |
+|---|---|
+| +12 V | VCC de l'ampli et entrée du convertisseur abaisseur |
+| −12 V (masse) | GND de l'ampli et entrée du convertisseur abaisseur |
+| Sortie 5 V du convertisseur | broche **5V** du D1 mini (pas 3V3) |
+| Sortie GND du convertisseur | broche **G** du D1 mini |
+
+Le DFPlayer prend son 5 V sur le D1 mini, comme indiqué plus haut. Toutes les masses sont ainsi communes. Ne mettez jamais le 12 V sur l'ESP ni sur le DFPlayer.
+
+Préférez un abaisseur à **sortie fixe 5 V**. Les modules réglables (LM2596, MP1584…) sortent souvent une tension quelconque tant qu'ils ne sont pas réglés, ce qui peut griller l'ESP et le DFPlayer. Évitez aussi les modèles à sortie USB, dont certains sortent 5,2 V. Dans tous les cas, **mesurez la sortie au multimètre avant de brancher l'ESP** : elle doit être entre 4,9 et 5,2 V.
+
+### Son (ampli PAM8610)
+
+| PAM8610 | Va vers | Remarque |
+|---|---|---|
+| Entrée **L** | **DAC_L** (broche 5) du DFPlayer | |
+| Entrée **R** | **DAC_R** (broche 4) du DFPlayer | |
+| Entrée **G** | **GND** du DFPlayer | Référence du signal audio, à brancher même si les masses sont déjà communes |
+| Sortie **L+** / **L−** | **+** / **−** du 1er haut-parleur | |
+| Sortie **R+** / **R−** | **+** / **−** du 2e haut-parleur | |
+
+Avec des MP3 mono, les deux haut-parleurs jouent la même chose. On peut aussi relier les entrées L et R ensemble sur DAC_R seule. Les deux haut-parleurs ne partagent aucun fil : chacun a son propre canal.
+
+- **Les sorties du PAM8610 sont pontées : ne reliez jamais L−, R− ni un fil de haut-parleur à la masse, et ne reliez pas les deux haut-parleurs entre eux.** Cela grillerait l'ampli.
+- Ne dépassez pas 12 V : c'est le maximum indiqué par la plupart des vendeurs de ces modules.
+- Commencez avec le potentiomètre de l'ampli à mi-course. Le volume du DFPlayer se règle avec `VOLUME` dans [`include/config.h`](include/config.h), au maximum (30) par défaut.
+- Le convertisseur abaisseur peut ajouter un léger sifflement. Des fils audio courts et un condensateur sur sa sortie 5 V le réduisent.
+
+**Amplis à éviter :** méfiez-vous des puissances annoncées et fiez-vous au nom de la puce.
+
+| Puce | Pourquoi |
+|---|---|
+| LM386 | Moins de 1 W en pratique, même vendu comme « 10 W » |
+| PAM8403 | 3 W en 5 V, à peine plus que le DFPlayer seul |
+| TDA2030 | Bourdonnement audible au repos |
+| Modules « subwoofer » | Leur filtre coupe les aigus, et la voix devient inaudible |
+
+**Sans ampli :** pour un test ou un petit volume, un seul haut-parleur (3 W maximum) peut aussi se brancher directement sur **SPK_1** et **SPK_2** du DFPlayer. Ne reliez pas SPK_2 à la masse.
 
 Les broches D3, D4 et D8 sont évitées parce qu'elles gênent le démarrage de l'ESP8266, et D0 parce qu'elle n'a pas de pull-up.
 
