@@ -189,6 +189,14 @@ pio device monitor
 
 Pour revenir au firmware normal : `pio run -t upload`.
 
-## Pistes pour la suite
+## À faire
 
-- Couper l'ampli entre deux sonneries (MOSFET ou broche MUTE), pour supprimer le bourdonnement au repos
+- [ ] **Ruban LED : corriger le scintillement.** Le code est prêt dans la branche `leds-wip` : 131 LEDs WS2812B sur D4, lucioles ambrées quand le hackerspace est ouvert (SpaceAPI), onde à la 1re sonnerie, respiration à l'insistance, aucune animation de 22 h à 8 h. Il est désactivé (`LED_ENABLED = false`) parce que le ruban scintille, même avec un signal généré sans interruption : le signal 3,3 V de l'ESP est trop juste pour un ruban en 5 V. Pistes :
+  - adaptateur de niveau 74AHCT125 entre D4 et le ruban ;
+  - ou « LED sacrifiée » : la 1re LED alimentée à travers une diode au silicium (1N4148, 1N4001), pour qu'elle lise le 3,3 V et renvoie un signal propre au reste du ruban ;
+  - dans les deux cas : résistance de 330 Ω près du ruban, fil de données court, fil GND qui suit le fil de données.
+- [ ] **Haut-parleur : supprimer le souffle et le bourdonnement au repos.** Pistes :
+  - couper l'ampli entre deux sonneries : le PAM8610 a des broches MUTE et SD (arrêt) qu'une broche libre de l'ESP peut piloter, ou un MOSFET sur son alimentation ;
+  - garder la radio Wi-Fi de l'ESP toujours active (`WiFi.setSleepMode(WIFI_NONE_SLEEP)`) : ses mises en veille périodiques créent des pics de consommation audibles ;
+  - filtrer l'alimentation : condensateur de 470 à 1000 µF et céramique de 100 nF sur l'ampli et sur la sortie du convertisseur 12 V → 5 V ;
+  - fils audio courts et torsadés avec leur masse.
